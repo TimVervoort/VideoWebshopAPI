@@ -1,0 +1,99 @@
+<?php
+
+    /**
+     * @author: Tim Vervoort
+     */
+
+    include("simple_html_dom.php"); // Library to parse HTML DOM
+
+    /**
+     * Retreives a HTML file from the webshops and extracts the product items (if any).
+     * Returns a list of objects (name {string}, price {float}, link {string} and image {string}) or the empty list of nothing matched the search criteria.
+     * @param $roothURL {string} - The domainname for the webshop.
+     * @param $baseURL {string} - The search endpoint (must be publicy accessible) which is to be crawled.
+     * @param $search {string} - The search string to be passed to the search endpoint (must be URL encoded).
+     * @param $productPath {string} - The DOM selector for a product item.
+     * @param $namePath {string} - The DOM selector for a product name.
+     * @param $namePathIndex {integer} - The index of the product name DOM selector.
+     * @param $pricePath {string} - The DOM selector for the product price.
+     * @param $pricePathIndex {integer} - The index of the product price DOM selector.
+     */
+    function getProducts($rootURL, $baseURL, $search, $productPath, $namePath, $namePathIndex, $pricePath, $pricePathIndex) {
+
+        $url = $baseURL.$search; 
+        $html = file_get_html($url);
+    
+        $products = array();
+        foreach($html->find($productPath) as $p) {  
+            // Check if this product has all required fields    
+            if (count($p->find("img")) >= 1 && count($p->find($namePath)) > $namePathIndex && count($p->find($pricePath)) > $pricePathIndex) {
+                $o = new stdClass();
+                $o->img = trim($p->find("img")[0]->src); // Find the product image
+                $o->name = trim(preg_replace("!\s+!", " ", $p->find($namePath)[$namePathIndex]->plaintext)); // Find the product name
+                // Find and convert product price to float
+                $o->priceRAW = trim(str_replace(" ", "", str_replace(",", ".", str_replace("&nbsp;", "", $p->find($pricePath)[$pricePathIndex]->plaintext))));
+                $o->priceVAL = str_replace("&euro", "", str_replace("€", "", str_replace("$", "", $o->priceRAW)));
+                $o->price = floatval($o->priceVAL);
+                $o->link = trim($p->find("a")[0]->href); // Find link to detailed product page on the webshop
+                if (!strpos($o->link, "http://")) {
+                    $o->link = $rootURL.$o->link;
+                }
+                array_push($products, $o);
+            }       
+        }
+    
+        return $products;
+    }
+
+    /**
+     * Search a webshop for products meeting the search criteria.
+     * Returns a list of objects (name {string}, price {float}, link {string} and image {string}) or the empty list of nothing matched the search criteria.
+     * Returns an empty list of the webshop doesn't exist in the function.
+     * @param $channel {string} - The name of the webshop*.
+     * @param $search {string} - The search query.
+     * *The following webshops are supported: fototools, fotokonijnenberg, selexion, mediamarkt, amazon, avned, bhphotovideo.
+     */
+    function search($channel, $search) {
+
+        if (strtolower($channel) === "fototools") {
+            return getProducts("https://fototools.be", "https://fototools.be/index.php?action=search&lang=NL&srchval=", $search, "tr", "td", 1, "td", 2);
+        }
+
+        else if (strtolower($channel) === "fotokonijnenberg") {
+            /// TODO: really slow response
+            return getProducts("https://www.fotokonijnenberg.be", "https://www.fotokonijnenberg.be/catalogsearch/result/?q=", $search, "div.category-products ul li", "div.product-name", 0, "span.price", 0);
+        }
+
+        else if (strtolower($channel) === "selexion") {
+            /// TODO: product image cannot be found
+            return getProducts("https://www.selexion.be", "https://www.selexion.be/nl/search/?text=", $search, "div.product_item", "h2", 0, "span.price", 0);
+        }
+
+        else if (strtolower($channel) === "mediamarkt") {
+            /// TODO: product link cannot be found
+            return getProducts("https://www.mediamarkt.be", "https://www.mediamarkt.be/nl/search.html?query=", $search, "ul.products-list li", "h2", 0, "div.price", 0);
+        }
+
+        else if (strtolower($channel) === "amazon") {
+            return getProducts("https://www.amazon.de", "https://www.amazon.de/s?k=", $search, ".sg-row", "h5", 0, "span.a-price-whole", 0);
+        }
+
+        else if (strtolower($channel) === "avned") {
+            return getProducts("http://www.avned.nl", "http://www.avned.nl/catalogsearch/result/?q=", $search, "li.item", "h2.product-name", 0, "span.price", 0);
+
+        }
+
+        else if (strtolower($channel) === "bhphotovideo") {
+            return getProducts("https://www.bhphotovideo.com", "https://www.bhphotovideo.com/c/search?Ntt=", $search, "div.item", "h5", 0, "span.itc-you-pay-price", 0);
+        }
+
+        return array();
+    }
+
+    if ($argc < 3) {
+        exit("Usage: ".$argv[0]." webshop search");
+    }
+
+    print_r(search($argv[1], $argv[2]));
+
+?>
