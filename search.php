@@ -32,7 +32,8 @@
                 $o->name = trim(preg_replace("!\s+!", " ", $p->find($namePath)[$namePathIndex]->plaintext)); // Find the product name
                 // Find and convert product price to float
                 $o->priceRAW = trim(str_replace(" ", "", str_replace(",", ".", str_replace("&nbsp;", "", $p->find($pricePath)[$pricePathIndex]->plaintext))));
-                $o->priceVAL = str_replace("&euro", "", str_replace("€", "", str_replace("$", "", $o->priceRAW)));
+                $o->priceVAL = str_replace(".-", "", str_replace("&euro", "", str_replace("€", "", str_replace("$", "", $o->priceRAW))));
+                $o->priceVAL = preg_replace("/\./", "", $o->priceVAL, (substr_count($o->priceVAL, ".") - 1)); // Remove thousand
                 $o->price = floatval($o->priceVAL);
                 $o->link = trim($p->find("a")[0]->href); // Find link to detailed product page on the webshop
                 if (!strpos($o->link, "http://")) {
@@ -51,9 +52,11 @@
      * Returns an empty list of the webshop doesn't exist in the function.
      * @param $channel {string} - The name of the webshop*.
      * @param $search {string} - The search query.
-     * *The following webshops are supported: fototools, fotokonijnenberg, selexion, mediamarkt, amazon, avned, bhphotovideo.
+     * *The following webshops are supported: fototools, fotokonijnenberg, selexion, mediamarkt, amazon, avned, avblackmagic, bhphotovideo, coolblue.
      */
     function search($channel, $search) {
+
+        $search = str_replace(" ", "+", $search); // URL encode
 
         if (strtolower($channel) === "fototools") {
             return getProducts("https://fototools.be", "https://fototools.be/index.php?action=search&lang=NL&srchval=", $search, "tr", "td", 1, "td", 2);
@@ -80,11 +83,18 @@
 
         else if (strtolower($channel) === "avned") {
             return getProducts("http://www.avned.nl", "http://www.avned.nl/catalogsearch/result/?q=", $search, "li.item", "h2.product-name", 0, "span.price", 0);
+        }
 
+        else if (strtolower($channel) === "avblackmagic") {
+            return getProducts("http://www.avblackmagic.nl", "http://www.avblackmagic.nl/catalogsearch/result/?q=", $search, "li.item", "h2.product-name", 0, "span.price", 0);
         }
 
         else if (strtolower($channel) === "bhphotovideo") {
             return getProducts("https://www.bhphotovideo.com", "https://www.bhphotovideo.com/c/search?Ntt=", $search, "div.item", "h5", 0, "span.itc-you-pay-price", 0);
+        }
+
+        else if (strtolower($channel) === "coolblue") {
+            return getProducts("https://www.coolblue.be", "https://www.coolblue.be/nl/zoeken?query=", $search, "div.product", "a.product__title", 0, "span.sales-price", 0);
         }
 
         return array();
