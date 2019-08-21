@@ -78,7 +78,7 @@
         }
 
         else if (strtolower($channel) === "amazon") {
-            return getProducts("https://www.amazon.de", "https://www.amazon.de/s?k=", $search, ".sg-row", "h5", 0, "span.a-price-whole", 0);
+            return getProducts("https://www.amazon.de", "https://www.amazon.de/s?k=", $search, ".s-result-item", "h2", 0, "span.a-price-whole", 0);
         }
 
         else if (strtolower($channel) === "avned") {
