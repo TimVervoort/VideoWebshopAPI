@@ -25,21 +25,48 @@
     
         $products = array();
         foreach($html->find($productPath) as $p) {  
+
             // Check if this product has all required fields    
             if (count($p->find("img")) >= 1 && count($p->find($namePath)) > $namePathIndex && count($p->find($pricePath)) > $pricePathIndex) {
+                
                 $o = new stdClass();
-                $o->img = trim($p->find("img")[0]->src); // Find the product image
+
+                // Product image
+                $o->img = "";
+                foreach ($p->find("img") as $i) {
+                    if (!empty($i->src) && substr($i->src, 0, 5) !== "data:") {
+                        $o->img = trim($i->src);
+                    }
+                    else if (!empty($i->attr['data-src']) && substr($i->attr['data-src'], 0, 5) !== "data:") {
+                        $o->img = trim($i->attr['data-src']);
+                    }
+                }
+                if (substr($o->img, 0, 2) === "//") {
+                    $o->img = "https:".$o->img;
+                }
+
                 $o->name = trim(preg_replace("!\s+!", " ", $p->find($namePath)[$namePathIndex]->plaintext)); // Find the product name
+
                 // Find and convert product price to float
                 $o->priceRAW = trim(str_replace(" ", "", str_replace(",", ".", str_replace("&nbsp;", "", $p->find($pricePath)[$pricePathIndex]->plaintext))));
                 $o->priceVAL = str_replace(".-", "", str_replace("&euro", "", str_replace("€", "", str_replace("$", "", $o->priceRAW))));
                 $o->priceVAL = preg_replace("/\./", "", $o->priceVAL, (substr_count($o->priceVAL, ".") - 1)); // Remove thousand
                 $o->price = floatval($o->priceVAL);
-                $o->link = trim($p->find("a")[0]->href); // Find link to detailed product page on the webshop
-                if (!strpos($o->link, "http://")) {
+               
+                // Product link
+                $o->link = "";
+                foreach ($p->find("a") as $a) {
+                    if (!empty($a->href) && $a->href !== "#") {
+                        $o->link = trim($a->href);
+                    }
+                }
+                
+                if (strpos($o->link, "http://") === false && strpos($o->link, "https://") === false) {
                     $o->link = $rootURL.$o->link;
                 }
+
                 array_push($products, $o);
+
             }       
         }
     
@@ -63,17 +90,14 @@
         }
 
         else if (strtolower($channel) === "fotokonijnenberg") {
-            /// TODO: really slow response
             return getProducts("https://www.fotokonijnenberg.be", "https://www.fotokonijnenberg.be/catalogsearch/result/?q=", $search, "div.category-products ul li", "div.product-name", 0, "span.price", 0);
         }
 
         else if (strtolower($channel) === "selexion") {
-            /// TODO: product image cannot be found
-            return getProducts("https://www.selexion.be", "https://www.selexion.be/nl/search/?text=", $search, "div.product_item", "h2", 0, "span.price", 0);
+            return getProducts("https://www.selexion.be", "https://www.selexion.be/nl/search/?text=", $search, "div.product-layout", "div.name", 0, "div.price", 0);
         }
 
         else if (strtolower($channel) === "mediamarkt") {
-            /// TODO: product link cannot be found
             return getProducts("https://www.mediamarkt.be", "https://www.mediamarkt.be/nl/search.html?query=", $search, "ul.products-list li", "h2", 0, "div.price", 0);
         }
 
@@ -95,6 +119,14 @@
 
         else if (strtolower($channel) === "coolblue") {
             return getProducts("https://www.coolblue.be", "https://www.coolblue.be/nl/zoeken?query=", $search, "div.product", "a.product__title", 0, "span.sales-price", 0);
+        }
+
+        /*else if (strtolower($channel) === "barndoor") {
+            return getProducts("https://www.filmandvideolighting.com", "https://www.filmandvideolighting.com/search-results.html?query=", $search, "div.item-box", "h2.name", 0, "div.sale-price", 0);
+        }*/  
+        
+        else if (strtolower($channel) === "digistore") {
+            return getProducts("https://digistore.eu", "https://digistore.eu/catalogsearch/result/?q=", $search, "li.item", "h2.product-name", 0, "span.price", 0);
         }
 
         return array();
